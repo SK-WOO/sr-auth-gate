@@ -94,3 +94,18 @@ Font: Pretendard. AccessDenied 컴포넌트에서 사용.
 - 이 패키지는 **UI 레벨 차단**이다. 백엔드 보안이 아님.
 - ACL 결과는 `sessionStorage`에 5분 TTL로 캐싱됨. 에러 상태는 캐싱 안 함 (일시적 네트워크 오류 고려).
 - `status === "error"` (네트워크 실패)와 `status === "denied"` (권한 없음)는 별도 처리. `error` prop으로 커스텀 오류 UI 주입 가능.
+
+## 보안 가이드 (필수)
+
+이 앱의 모든 API/코드 작업 시 SR 보안 가이드를 따른다. 작업 전 반드시 읽을 것:
+
+**보안 스킬**: `SR-Apps/.claude/skills/sr-security/SKILL.md`
+
+핵심 규칙 요약:
+- **모든 API 엔드포인트에 인증 필수** (Google OAuth 토큰 검증 또는 NextAuth 세션)
+- **`@seoulrobotics.org` 도메인 체크 필수**
+- **admin 전용 액션은 `ADMIN_EMAILS` 환경변수로 제한**
+- **API 응답은 역할 기반 필터링** — 전체 데이터를 반환하지 않는다
+- **시크릿/토큰은 환경변수에만** — 코드 하드코딩 절대 금지
+- **CSV 파싱은 `parseCSVRow()` 사용** — `row.split(",")` 절대 금지
+- **참조 구현**: `sr-hr-pass/api/gas-proxy.js` (가장 완성도 높은 보안 패턴)

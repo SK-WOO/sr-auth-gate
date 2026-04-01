@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(npm test:*)",
+      "Bash(npm run:*)",
+      "Bash(for dir:*)",
+      "Bash(do path=C:/Users/Sangkil/SR-Apps/$dir find $path/src -name *.jsx -o -name *.tsx)",
+      "Bash(do path=C:/Users/Sangkil/SR-Apps/$dir echo '=== $dir ===' ls $path/src/)",
+      "Bash(echo '\\(src 없음\\)' ls $path/)",
+      "Bash(for f:*)",
+      "Bash(do echo:*)",
+      "Bash(find C:/Users/Sangkil/SR-Apps/sr-purchase-mgt -name *.tsx -o -name *.jsx)",
+      "Bash(find C:/Users/Sangkil/SR-Apps/sr-planning/app -name *.tsx -o -name *.jsx)",
+      "Bash(grep -rn \"SRAuthGate\\\\|auth-gate\\\\|appSlug\" \"C:/Users/Sangkil/SR-Apps/sr-planning/components/layout/AuthGateWrapper\"*)",
+      "Bash(do path=C:/Users/Sangkil/SR-Apps/$dir if grep -q \"sr-auth-gate\\\\|@sr/auth-gate\" $path/package.json)",
+      "Bash(then echo:*)",
+      "WebFetch(domain:docs.google.com)",
+      "Bash(gh repo:*)",
+      "Bash(gh api:*)",
+      "Read(//c/Users/Sangkil/SR-Apps/sr-auth-gate/$TEMP/**)",
+      "Read(//c/Users/Sangkil/SR-Apps/sr-auth-gate/$TEMP/sr-gate-work/**)",
+      "Bash(vercel:*)",
+      "WebFetch(domain:sr-gate.vercel.app)",
+      "Bash(npm publish:*)",
+      "Bash(npm whoami:*)"
+    ]
+  }
+}
