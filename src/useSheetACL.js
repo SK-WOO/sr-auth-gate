@@ -1,7 +1,6 @@
 // src/useSheetACL.js
 import { useState, useEffect } from "react";
 
-const SHEET_BASE = "https://docs.google.com/spreadsheets/d";
 const CACHE_TTL = 5 * 60 * 1000; // 5분
 
 // CSV 행을 올바르게 파싱 (따옴표 안의 쉼표 처리)
@@ -25,9 +24,9 @@ export function parseCSVRow(row) {
   return cells;
 }
 
-// 민감 정보(sheetId, email)를 평문으로 노출하지 않기 위해 SHA-256 해시로 키 생성
-async function hashCacheKey(sheetId, sheetName, userEmail, appSlug) {
-  const raw = `sr-acl:${sheetId}:${sheetName}:${userEmail}:${appSlug}`;
+// 민감 정보(email, appSlug)를 평문으로 노출하지 않기 위해 SHA-256 해시로 키 생성
+async function hashCacheKey(proxyUrl, userEmail, appSlug) {
+  const raw = `sr-acl:${proxyUrl}:${userEmail}:${appSlug}`;
   if (typeof crypto?.subtle?.digest !== "function") {
     // SubtleCrypto 미지원 환경 fallback (테스트 등)
     return "sr-acl:" + btoa(raw).replace(/=/g, "");
@@ -60,12 +59,14 @@ function setCached(key, status) {
   }
 }
 
-export function useSheetACL({ sheetId, sheetName = "Sheet1", userEmail, appSlug }) {
+// proxyUrl: "https://sr-gate.vercel.app/api/check-access"
+// proxyUrl이 없으면 BYPASS 모드 (개발용, sheetId 방식 제거됨)
+export function useSheetACL({ proxyUrl, userEmail, appSlug }) {
   const [status, setStatus] = useState("loading"); // "allowed" | "denied" | "loading" | "error"
 
   useEffect(() => {
-    if (!sheetId) {
-      // BYPASS 모드: sheetId가 비어있으면 모든 접근 허용
+    if (!proxyUrl) {
+      // BYPASS 모드: proxyUrl이 없으면 모든 접근 허용 (개발 환경)
       setStatus("allowed");
       return;
     }
@@ -76,7 +77,7 @@ export function useSheetACL({ sheetId, sheetName = "Sheet1", userEmail, appSlug 
 
     let cancelled = false;
 
-    hashCacheKey(sheetId, sheetName, userEmail, appSlug).then(cacheKey => {
+    hashCacheKey(proxyUrl, userEmail, appSlug).then(cacheKey => {
       if (cancelled) return;
 
       const cached = getCached(cacheKey);
@@ -85,57 +86,21 @@ export function useSheetACL({ sheetId, sheetName = "Sheet1", userEmail, appSlug 
         return;
       }
 
-      // sheetName에 한글 등 특수문자가 있을 경우 인코딩
-      const url = `${SHEET_BASE}/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
+      const url = `${proxyUrl}?email=${encodeURIComponent(userEmail)}&app=${encodeURIComponent(appSlug)}`;
 
       fetch(url)
-        .then((res) => res.text())
-        .then((csv) => {
+        .then((res) => res.json())
+        .then((data) => {
           if (cancelled) return;
-          const rows = csv.split("\n").filter((r) => r.trim());
-          if (rows.length < 2) {
-            setCached(cacheKey, "denied");
-            setStatus("denied");
-            return;
-          }
-
-          // ⚠️ parseCSVRow 사용 — split(",") 금지
-          const headers = parseCSVRow(rows[0]).map((h) => h.toLowerCase());
-          const emailColIdx = headers.indexOf("email");
-          const slugIdx = headers.indexOf(appSlug.toLowerCase());
-
-          if (emailColIdx === -1 || slugIdx === -1) {
-            setCached(cacheKey, "denied");
-            setStatus("denied");
-            return;
-          }
-
-          const email = userEmail.toLowerCase();
-
-          for (let i = 1; i < rows.length; i++) {
-            const cells = parseCSVRow(rows[i]); // ⚠️ parseCSVRow 사용
-            const rowEmail = (cells[emailColIdx] || "").toLowerCase().trim();
-            const cellValue = (cells[slugIdx] || "").toUpperCase().trim();
-            if (cellValue !== "O") continue;
-            if (rowEmail === "all") {
-              setCached(cacheKey, "allowed");
-              setStatus("allowed");
-              return;
-            }
-            if (rowEmail === email) {
-              setCached(cacheKey, "allowed");
-              setStatus("allowed");
-              return;
-            }
-          }
-          setCached(cacheKey, "denied");
-          setStatus("denied");
+          const result = data.allowed === true ? "allowed" : "denied";
+          setCached(cacheKey, result);
+          setStatus(result);
         })
-        .catch(() => { if (!cancelled) setStatus("error"); }); // error는 캐싱하지 않음 (일시적 네트워크 오류 가능)
+        .catch(() => { if (!cancelled) setStatus("error"); }); // error는 캐싱하지 않음
     });
 
     return () => { cancelled = true; };
-  }, [sheetId, sheetName, userEmail, appSlug]);
+  }, [proxyUrl, userEmail, appSlug]);
 
   return status;
 }

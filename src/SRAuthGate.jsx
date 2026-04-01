@@ -4,9 +4,8 @@ import { AccessDenied } from "./AccessDenied";
 
 export function SRAuthGate({
   appSlug,
-  sheetId,
+  proxyUrl,
   userEmail,
-  sheetName = "Sheet1",
   lang = "ko",
   appName,
   loading,
@@ -14,7 +13,7 @@ export function SRAuthGate({
   error,
   children,
 }) {
-  const status = useSheetACL({ sheetId, sheetName, userEmail, appSlug });
+  const status = useSheetACL({ proxyUrl, userEmail, appSlug });
 
   if (status === "loading") {
     return loading || (

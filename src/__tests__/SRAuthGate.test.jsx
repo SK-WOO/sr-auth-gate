@@ -2,11 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { SRAuthGate } from "../SRAuthGate";
 
-function makeCsv(rows) {
-  return rows.map((r) => r.join(",")).join("\n");
-}
-
-const SHEET_ID = "test-sheet-id";
+const PROXY_URL = "https://sr-gate.vercel.app/api/check-access";
 const USER_EMAIL = "user@seoulrobotics.org";
 const APP_SLUG = "hr-simulator";
 
@@ -20,11 +16,15 @@ afterEach(() => {
   sessionStorage.clear();
 });
 
+function mockProxy(allowed) {
+  fetch.mockResolvedValue({ json: () => Promise.resolve({ allowed }) });
+}
+
 describe("SRAuthGate", () => {
   it("로딩 중에는 기본 로딩 UI 표시", () => {
     fetch.mockReturnValue(new Promise(() => {})); // 영원히 pending
     render(
-      <SRAuthGate appSlug={APP_SLUG} sheetId={SHEET_ID} userEmail={USER_EMAIL} lang="ko">
+      <SRAuthGate appSlug={APP_SLUG} proxyUrl={PROXY_URL} userEmail={USER_EMAIL} lang="ko">
         <div>protected</div>
       </SRAuthGate>
     );
@@ -32,11 +32,9 @@ describe("SRAuthGate", () => {
   });
 
   it("allowed이면 children 렌더링", async () => {
-    fetch.mockResolvedValue({
-      text: () => Promise.resolve(makeCsv([["email", APP_SLUG], [USER_EMAIL, "O"]])),
-    });
+    mockProxy(true);
     render(
-      <SRAuthGate appSlug={APP_SLUG} sheetId={SHEET_ID} userEmail={USER_EMAIL}>
+      <SRAuthGate appSlug={APP_SLUG} proxyUrl={PROXY_URL} userEmail={USER_EMAIL}>
         <div>protected content</div>
       </SRAuthGate>
     );
@@ -44,11 +42,9 @@ describe("SRAuthGate", () => {
   });
 
   it("denied이면 기본 AccessDenied 표시", async () => {
-    fetch.mockResolvedValue({
-      text: () => Promise.resolve(makeCsv([["email", APP_SLUG], [USER_EMAIL, ""]])),
-    });
+    mockProxy(false);
     render(
-      <SRAuthGate appSlug={APP_SLUG} sheetId={SHEET_ID} userEmail={USER_EMAIL} lang="ko">
+      <SRAuthGate appSlug={APP_SLUG} proxyUrl={PROXY_URL} userEmail={USER_EMAIL} lang="ko">
         <div>protected</div>
       </SRAuthGate>
     );
@@ -58,7 +54,7 @@ describe("SRAuthGate", () => {
   it("error이면 기본 오류 화면 표시 (denied와 별도)", async () => {
     fetch.mockRejectedValue(new Error("network error"));
     render(
-      <SRAuthGate appSlug={APP_SLUG} sheetId={SHEET_ID} userEmail={USER_EMAIL} lang="ko">
+      <SRAuthGate appSlug={APP_SLUG} proxyUrl={PROXY_URL} userEmail={USER_EMAIL} lang="ko">
         <div>protected</div>
       </SRAuthGate>
     );
@@ -70,7 +66,7 @@ describe("SRAuthGate", () => {
     render(
       <SRAuthGate
         appSlug={APP_SLUG}
-        sheetId={SHEET_ID}
+        proxyUrl={PROXY_URL}
         userEmail={USER_EMAIL}
         loading={<div>custom loading</div>}
       >
@@ -81,13 +77,11 @@ describe("SRAuthGate", () => {
   });
 
   it("커스텀 denied prop 사용", async () => {
-    fetch.mockResolvedValue({
-      text: () => Promise.resolve(makeCsv([["email", APP_SLUG], [USER_EMAIL, ""]])),
-    });
+    mockProxy(false);
     render(
       <SRAuthGate
         appSlug={APP_SLUG}
-        sheetId={SHEET_ID}
+        proxyUrl={PROXY_URL}
         userEmail={USER_EMAIL}
         denied={<div>custom denied</div>}
       >
@@ -102,7 +96,7 @@ describe("SRAuthGate", () => {
     render(
       <SRAuthGate
         appSlug={APP_SLUG}
-        sheetId={SHEET_ID}
+        proxyUrl={PROXY_URL}
         userEmail={USER_EMAIL}
         error={<div>custom error</div>}
       >
@@ -112,9 +106,9 @@ describe("SRAuthGate", () => {
     await waitFor(() => expect(screen.getByText("custom error")).toBeDefined());
   });
 
-  it("BYPASS 모드: sheetId 빈 문자열이면 children 렌더링", async () => {
+  it("BYPASS 모드: proxyUrl 없으면 children 렌더링", async () => {
     render(
-      <SRAuthGate appSlug={APP_SLUG} sheetId="" userEmail={USER_EMAIL}>
+      <SRAuthGate appSlug={APP_SLUG} userEmail={USER_EMAIL}>
         <div>bypass content</div>
       </SRAuthGate>
     );
@@ -125,7 +119,7 @@ describe("SRAuthGate", () => {
   it("en lang 로딩 텍스트", () => {
     fetch.mockReturnValue(new Promise(() => {}));
     render(
-      <SRAuthGate appSlug={APP_SLUG} sheetId={SHEET_ID} userEmail={USER_EMAIL} lang="en">
+      <SRAuthGate appSlug={APP_SLUG} proxyUrl={PROXY_URL} userEmail={USER_EMAIL} lang="en">
         <div>protected</div>
       </SRAuthGate>
     );

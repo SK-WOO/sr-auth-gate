@@ -4,8 +4,8 @@ import { ReactNode } from "react";
 export type ACLStatus = "loading" | "allowed" | "denied" | "error";
 
 export interface UseSheetACLOptions {
-  sheetId: string;
-  sheetName?: string;
+  /** 프록시 URL (예: "https://sr-gate.vercel.app/api/check-access"). 없으면 BYPASS 모드 */
+  proxyUrl?: string;
   userEmail: string;
   appSlug: string;
 }
@@ -25,10 +25,9 @@ export function AccessDenied(props: AccessDeniedProps): JSX.Element;
 // SRAuthGate
 export interface SRAuthGateProps {
   appSlug: string;
-  /** Google Sheets ID. 빈 문자열("")이면 BYPASS — 모든 접근 허용 */
-  sheetId: string;
+  /** 프록시 URL (예: "https://sr-gate.vercel.app/api/check-access"). 없으면 BYPASS 모드 */
+  proxyUrl?: string;
   userEmail: string;
-  sheetName?: string;
   lang?: "ko" | "en";
   appName?: string;
   /** 커스텀 로딩 UI */
