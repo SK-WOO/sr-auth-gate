@@ -25,6 +25,18 @@ export function parseCSVRow(row) {
   return cells;
 }
 
+// 민감 정보(sheetId, email)를 평문으로 노출하지 않기 위해 SHA-256 해시로 키 생성
+async function hashCacheKey(sheetId, sheetName, userEmail, appSlug) {
+  const raw = `sr-acl:${sheetId}:${sheetName}:${userEmail}:${appSlug}`;
+  if (typeof crypto?.subtle?.digest !== "function") {
+    // SubtleCrypto 미지원 환경 fallback (테스트 등)
+    return "sr-acl:" + btoa(raw).replace(/=/g, "");
+  }
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(raw));
+  const hex = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
+  return "sr-acl:" + hex;
+}
+
 function getCached(key) {
   try {
     const raw = sessionStorage.getItem(key);
@@ -62,59 +74,67 @@ export function useSheetACL({ sheetId, sheetName = "Sheet1", userEmail, appSlug 
       return;
     }
 
-    const cacheKey = `sr-acl:${sheetId}:${sheetName}:${userEmail}:${appSlug}`;
-    const cached = getCached(cacheKey);
-    if (cached) {
-      setStatus(cached);
-      return;
-    }
+    let cancelled = false;
 
-    // sheetName에 한글 등 특수문자가 있을 경우 인코딩
-    const url = `${SHEET_BASE}/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
+    hashCacheKey(sheetId, sheetName, userEmail, appSlug).then(cacheKey => {
+      if (cancelled) return;
 
-    fetch(url)
-      .then((res) => res.text())
-      .then((csv) => {
-        const rows = csv.split("\n").filter((r) => r.trim());
-        if (rows.length < 2) {
-          setCached(cacheKey, "denied");
-          setStatus("denied");
-          return;
-        }
+      const cached = getCached(cacheKey);
+      if (cached) {
+        setStatus(cached);
+        return;
+      }
 
-        // ⚠️ parseCSVRow 사용 — split(",") 금지
-        const headers = parseCSVRow(rows[0]).map((h) => h.toLowerCase());
-        const emailColIdx = headers.indexOf("email");
-        const slugIdx = headers.indexOf(appSlug.toLowerCase());
+      // sheetName에 한글 등 특수문자가 있을 경우 인코딩
+      const url = `${SHEET_BASE}/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
 
-        if (emailColIdx === -1 || slugIdx === -1) {
-          setCached(cacheKey, "denied");
-          setStatus("denied");
-          return;
-        }
-
-        const email = userEmail.toLowerCase();
-
-        for (let i = 1; i < rows.length; i++) {
-          const cells = parseCSVRow(rows[i]); // ⚠️ parseCSVRow 사용
-          const rowEmail = (cells[emailColIdx] || "").toLowerCase().trim();
-          const cellValue = (cells[slugIdx] || "").toUpperCase().trim();
-          if (cellValue !== "O") continue;
-          if (rowEmail === "all") {
-            setCached(cacheKey, "allowed");
-            setStatus("allowed");
+      fetch(url)
+        .then((res) => res.text())
+        .then((csv) => {
+          if (cancelled) return;
+          const rows = csv.split("\n").filter((r) => r.trim());
+          if (rows.length < 2) {
+            setCached(cacheKey, "denied");
+            setStatus("denied");
             return;
           }
-          if (rowEmail === email) {
-            setCached(cacheKey, "allowed");
-            setStatus("allowed");
+
+          // ⚠️ parseCSVRow 사용 — split(",") 금지
+          const headers = parseCSVRow(rows[0]).map((h) => h.toLowerCase());
+          const emailColIdx = headers.indexOf("email");
+          const slugIdx = headers.indexOf(appSlug.toLowerCase());
+
+          if (emailColIdx === -1 || slugIdx === -1) {
+            setCached(cacheKey, "denied");
+            setStatus("denied");
             return;
           }
-        }
-        setCached(cacheKey, "denied");
-        setStatus("denied");
-      })
-      .catch(() => setStatus("error")); // error는 캐싱하지 않음 (일시적 네트워크 오류 가능)
+
+          const email = userEmail.toLowerCase();
+
+          for (let i = 1; i < rows.length; i++) {
+            const cells = parseCSVRow(rows[i]); // ⚠️ parseCSVRow 사용
+            const rowEmail = (cells[emailColIdx] || "").toLowerCase().trim();
+            const cellValue = (cells[slugIdx] || "").toUpperCase().trim();
+            if (cellValue !== "O") continue;
+            if (rowEmail === "all") {
+              setCached(cacheKey, "allowed");
+              setStatus("allowed");
+              return;
+            }
+            if (rowEmail === email) {
+              setCached(cacheKey, "allowed");
+              setStatus("allowed");
+              return;
+            }
+          }
+          setCached(cacheKey, "denied");
+          setStatus("denied");
+        })
+        .catch(() => { if (!cancelled) setStatus("error"); }); // error는 캐싱하지 않음 (일시적 네트워크 오류 가능)
+    });
+
+    return () => { cancelled = true; };
   }, [sheetId, sheetName, userEmail, appSlug]);
 
   return status;

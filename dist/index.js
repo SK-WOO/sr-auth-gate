@@ -1,79 +1,96 @@
-import { jsx as s, jsxs as S } from "react/jsx-runtime";
+import { jsx as c, jsxs as x } from "react/jsx-runtime";
 import { useState as k, useEffect as v } from "react";
-const A = "https://docs.google.com/spreadsheets/d", B = 300 * 1e3;
-function x(r) {
-  const o = [];
-  let t = "", n = !1;
+const B = "https://docs.google.com/spreadsheets/d", b = 300 * 1e3;
+function w(r) {
+  const n = [];
+  let e = "", o = !1;
   for (let i = 0; i < r.length; i++) {
-    const e = r[i];
-    e === '"' ? n = !n : e === "," && !n ? (o.push(t.trim()), t = "") : t += e;
+    const t = r[i];
+    t === '"' ? o = !o : t === "," && !o ? (n.push(e.trim()), e = "") : e += t;
   }
-  return o.push(t.trim()), o;
+  return n.push(e.trim()), n;
 }
-function z(r) {
+async function z(r, n, e, o) {
+  var s;
+  const i = `sr-acl:${r}:${n}:${e}:${o}`;
+  if (typeof ((s = crypto == null ? void 0 : crypto.subtle) == null ? void 0 : s.digest) != "function")
+    return "sr-acl:" + btoa(i).replace(/=/g, "");
+  const t = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(i));
+  return "sr-acl:" + Array.from(new Uint8Array(t)).map((f) => f.toString(16).padStart(2, "0")).join("");
+}
+function L(r) {
   try {
-    const o = sessionStorage.getItem(r);
-    if (!o) return null;
-    const { status: t, ts: n } = JSON.parse(o);
-    return Date.now() - n > B ? (sessionStorage.removeItem(r), null) : t;
+    const n = sessionStorage.getItem(r);
+    if (!n) return null;
+    const { status: e, ts: o } = JSON.parse(n);
+    return Date.now() - o > b ? (sessionStorage.removeItem(r), null) : e;
   } catch {
     return null;
   }
 }
-function f(r, o) {
+function u(r, n) {
   try {
-    sessionStorage.setItem(r, JSON.stringify({ status: o, ts: Date.now() }));
+    sessionStorage.setItem(r, JSON.stringify({ status: n, ts: Date.now() }));
   } catch {
   }
 }
-function L({ sheetId: r, sheetName: o = "Sheet1", userEmail: t, appSlug: n }) {
-  const [i, e] = k("loading");
+function R({ sheetId: r, sheetName: n = "Sheet1", userEmail: e, appSlug: o }) {
+  const [i, t] = k("loading");
   return v(() => {
     if (!r) {
-      e("allowed");
+      t("allowed");
       return;
     }
-    if (!t || !n) {
-      e("denied");
+    if (!e || !o) {
+      t("denied");
       return;
     }
-    const c = `sr-acl:${r}:${o}:${t}:${n}`, u = z(c);
-    if (u) {
-      e(u);
-      return;
-    }
-    const h = `${A}/${r}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(o)}`;
-    fetch(h).then((d) => d.text()).then((d) => {
-      const l = d.split(`
-`).filter((a) => a.trim());
-      if (l.length < 2) {
-        f(c, "denied"), e("denied");
+    let a = !1;
+    return z(r, n, e, o).then((s) => {
+      if (a) return;
+      const f = L(s);
+      if (f) {
+        t(f);
         return;
       }
-      const g = x(l[0]).map((a) => a.toLowerCase()), m = g.indexOf("email"), y = g.indexOf(n.toLowerCase());
-      if (m === -1 || y === -1) {
-        f(c, "denied"), e("denied");
-        return;
-      }
-      const D = t.toLowerCase();
-      for (let a = 1; a < l.length; a++) {
-        const p = x(l[a]), C = (p[m] || "").toLowerCase().trim();
-        if ((p[y] || "").toUpperCase().trim() === "O") {
-          if (C === "all") {
-            f(c, "allowed"), e("allowed");
-            return;
-          }
-          if (C === D) {
-            f(c, "allowed"), e("allowed");
-            return;
+      const h = `${B}/${r}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(n)}`;
+      fetch(h).then((l) => l.text()).then((l) => {
+        if (a) return;
+        const g = l.split(`
+`).filter((d) => d.trim());
+        if (g.length < 2) {
+          u(s, "denied"), t("denied");
+          return;
+        }
+        const m = w(g[0]).map((d) => d.toLowerCase()), p = m.indexOf("email"), y = m.indexOf(o.toLowerCase());
+        if (p === -1 || y === -1) {
+          u(s, "denied"), t("denied");
+          return;
+        }
+        const D = e.toLowerCase();
+        for (let d = 1; d < g.length; d++) {
+          const S = w(g[d]), C = (S[p] || "").toLowerCase().trim();
+          if ((S[y] || "").toUpperCase().trim() === "O") {
+            if (C === "all") {
+              u(s, "allowed"), t("allowed");
+              return;
+            }
+            if (C === D) {
+              u(s, "allowed"), t("allowed");
+              return;
+            }
           }
         }
-      }
-      f(c, "denied"), e("denied");
-    }).catch(() => e("error"));
-  }, [r, o, t, n]), i;
+        u(s, "denied"), t("denied");
+      }).catch(() => {
+        a || t("error");
+      });
+    }), () => {
+      a = !0;
+    };
+  }, [r, n, e, o]), i;
 }
-function w({ lang: r = "ko", userEmail: o, appName: t, isError: n = !1 }) {
+function A({ lang: r = "ko", userEmail: n, appName: e, isError: o = !1 }) {
   const i = {
     ko: {
       title: "접근 권한이 없습니다",
@@ -95,8 +112,8 @@ function w({ lang: r = "ko", userEmail: o, appName: t, isError: n = !1 }) {
       loggedAs: "Logged in as:",
       goBack: "Back to SR-Gate"
     }
-  }, e = i[r] || i.ko;
-  return /* @__PURE__ */ s("div", { style: {
+  }, t = i[r] || i.ko;
+  return /* @__PURE__ */ c("div", { style: {
     minHeight: "100vh",
     display: "flex",
     alignItems: "center",
@@ -104,18 +121,18 @@ function w({ lang: r = "ko", userEmail: o, appName: t, isError: n = !1 }) {
     background: "#0D0D0E",
     color: "#fff",
     fontFamily: "Pretendard, sans-serif"
-  }, children: /* @__PURE__ */ S("div", { style: { textAlign: "center", maxWidth: 400, padding: 40 }, children: [
-    /* @__PURE__ */ s("div", { style: { fontSize: 64, marginBottom: 24 }, children: n ? "⚠️" : "🔒" }),
-    /* @__PURE__ */ s("h1", { style: { fontSize: 24, fontWeight: 700, marginBottom: 12 }, children: n ? e.errorTitle : e.title }),
-    t && /* @__PURE__ */ s("p", { style: { fontSize: 14, color: "#999", marginBottom: 8 }, children: t }),
-    /* @__PURE__ */ s("p", { style: { fontSize: 16, color: "#aaa", marginBottom: 8 }, children: n ? e.errorDesc : e.desc }),
-    /* @__PURE__ */ s("p", { style: { fontSize: 14, color: "#888", marginBottom: 24 }, children: n ? e.errorContact : e.contact }),
-    o && /* @__PURE__ */ S("p", { style: { fontSize: 13, color: "#666", marginBottom: 24 }, children: [
-      e.loggedAs,
+  }, children: /* @__PURE__ */ x("div", { style: { textAlign: "center", maxWidth: 400, padding: 40 }, children: [
+    /* @__PURE__ */ c("div", { style: { fontSize: 64, marginBottom: 24 }, children: o ? "⚠️" : "🔒" }),
+    /* @__PURE__ */ c("h1", { style: { fontSize: 24, fontWeight: 700, marginBottom: 12 }, children: o ? t.errorTitle : t.title }),
+    e && /* @__PURE__ */ c("p", { style: { fontSize: 14, color: "#999", marginBottom: 8 }, children: e }),
+    /* @__PURE__ */ c("p", { style: { fontSize: 16, color: "#aaa", marginBottom: 8 }, children: o ? t.errorDesc : t.desc }),
+    /* @__PURE__ */ c("p", { style: { fontSize: 14, color: "#888", marginBottom: 24 }, children: o ? t.errorContact : t.contact }),
+    n && /* @__PURE__ */ x("p", { style: { fontSize: 13, color: "#666", marginBottom: 24 }, children: [
+      t.loggedAs,
       " ",
-      o
+      n
     ] }),
-    /* @__PURE__ */ s(
+    /* @__PURE__ */ c(
       "a",
       {
         href: "https://sr-gate.vercel.app",
@@ -129,25 +146,25 @@ function w({ lang: r = "ko", userEmail: o, appName: t, isError: n = !1 }) {
           fontSize: 14,
           textDecoration: "none"
         },
-        children: e.goBack
+        children: t.goBack
       }
     )
   ] }) });
 }
-function b({
+function F({
   appSlug: r,
-  sheetId: o,
-  userEmail: t,
-  sheetName: n = "Sheet1",
+  sheetId: n,
+  userEmail: e,
+  sheetName: o = "Sheet1",
   lang: i = "ko",
-  appName: e,
-  loading: c,
-  denied: u,
-  error: h,
-  children: d
+  appName: t,
+  loading: a,
+  denied: s,
+  error: f,
+  children: h
 }) {
-  const l = L({ sheetId: o, sheetName: n, userEmail: t, appSlug: r });
-  return l === "loading" ? c || /* @__PURE__ */ s("div", { style: {
+  const l = R({ sheetId: n, sheetName: o, userEmail: e, appSlug: r });
+  return l === "loading" ? a || /* @__PURE__ */ c("div", { style: {
     minHeight: "100vh",
     display: "flex",
     alignItems: "center",
@@ -155,10 +172,10 @@ function b({
     background: "#0D0D0E",
     color: "#aaa",
     fontFamily: "Pretendard, sans-serif"
-  }, children: /* @__PURE__ */ s("p", { children: i === "ko" ? "권한 확인 중..." : "Checking access..." }) }) : l === "error" ? h || /* @__PURE__ */ s(w, { lang: i, userEmail: t, appName: e, isError: !0 }) : l === "denied" ? u || /* @__PURE__ */ s(w, { lang: i, userEmail: t, appName: e }) : d;
+  }, children: /* @__PURE__ */ c("p", { children: i === "ko" ? "권한 확인 중..." : "Checking access..." }) }) : l === "error" ? f || /* @__PURE__ */ c(A, { lang: i, userEmail: e, appName: t, isError: !0 }) : l === "denied" ? s || /* @__PURE__ */ c(A, { lang: i, userEmail: e, appName: t }) : h;
 }
 export {
-  w as AccessDenied,
-  b as SRAuthGate,
-  L as useSheetACL
+  A as AccessDenied,
+  F as SRAuthGate,
+  R as useSheetACL
 };
