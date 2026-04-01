@@ -1,10 +1,13 @@
 // src/AccessDenied.jsx
-export function AccessDenied({ lang = "ko", userEmail, appName }) {
+export function AccessDenied({ lang = "ko", userEmail, appName, isError = false }) {
   const text = {
     ko: {
       title: "접근 권한이 없습니다",
       desc: "이 도구에 대한 접근 권한이 없습니다.",
       contact: "권한이 필요하시면 관리자에게 문의하세요.",
+      errorTitle: "연결 오류",
+      errorDesc: "권한 정보를 불러오는 중 오류가 발생했습니다.",
+      errorContact: "잠시 후 다시 시도하거나 관리자에게 문의하세요.",
       loggedAs: "현재 로그인:",
       goBack: "SR-Gate로 돌아가기",
     },
@@ -12,6 +15,9 @@ export function AccessDenied({ lang = "ko", userEmail, appName }) {
       title: "Access Restricted",
       desc: "You don't have permission to access this tool.",
       contact: "Please contact your administrator for access.",
+      errorTitle: "Connection Error",
+      errorDesc: "Failed to load permission data.",
+      errorContact: "Please try again later or contact your administrator.",
       loggedAs: "Logged in as:",
       goBack: "Back to SR-Gate",
     },
@@ -29,13 +35,19 @@ export function AccessDenied({ lang = "ko", userEmail, appName }) {
       fontFamily: "Pretendard, sans-serif",
     }}>
       <div style={{ textAlign: "center", maxWidth: 400, padding: 40 }}>
-        <div style={{ fontSize: 64, marginBottom: 24 }}>🔒</div>
-        <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 12 }}>{t.title}</h1>
+        <div style={{ fontSize: 64, marginBottom: 24 }}>{isError ? "⚠️" : "🔒"}</div>
+        <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 12 }}>
+          {isError ? t.errorTitle : t.title}
+        </h1>
         {appName && (
           <p style={{ fontSize: 14, color: "#999", marginBottom: 8 }}>{appName}</p>
         )}
-        <p style={{ fontSize: 16, color: "#aaa", marginBottom: 8 }}>{t.desc}</p>
-        <p style={{ fontSize: 14, color: "#888", marginBottom: 24 }}>{t.contact}</p>
+        <p style={{ fontSize: 16, color: "#aaa", marginBottom: 8 }}>
+          {isError ? t.errorDesc : t.desc}
+        </p>
+        <p style={{ fontSize: 14, color: "#888", marginBottom: 24 }}>
+          {isError ? t.errorContact : t.contact}
+        </p>
         {userEmail && (
           <p style={{ fontSize: 13, color: "#666", marginBottom: 24 }}>
             {t.loggedAs} {userEmail}

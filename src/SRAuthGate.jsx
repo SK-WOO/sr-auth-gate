@@ -11,6 +11,7 @@ export function SRAuthGate({
   appName,
   loading,
   denied,
+  error,
   children,
 }) {
   const status = useSheetACL({ sheetId, sheetName, userEmail, appSlug });
@@ -31,7 +32,11 @@ export function SRAuthGate({
     );
   }
 
-  if (status === "denied" || status === "error") {
+  if (status === "error") {
+    return error || <AccessDenied lang={lang} userEmail={userEmail} appName={appName} isError />;
+  }
+
+  if (status === "denied") {
     return denied || <AccessDenied lang={lang} userEmail={userEmail} appName={appName} />;
   }
 

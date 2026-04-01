@@ -2,10 +2,11 @@
 import { useState, useEffect } from "react";
 
 const SHEET_BASE = "https://docs.google.com/spreadsheets/d";
+const CACHE_TTL = 5 * 60 * 1000; // 5분
 
 // CSV 행을 올바르게 파싱 (따옴표 안의 쉼표 처리)
 // HR-Master Name 열에 "Bae, Jaehyu" 같은 값이 있어서 단순 split(",")은 불가
-function parseCSVRow(row) {
+export function parseCSVRow(row) {
   const cells = [];
   let current = "";
   let inQuotes = false;
@@ -24,6 +25,29 @@ function parseCSVRow(row) {
   return cells;
 }
 
+function getCached(key) {
+  try {
+    const raw = sessionStorage.getItem(key);
+    if (!raw) return null;
+    const { status, ts } = JSON.parse(raw);
+    if (Date.now() - ts > CACHE_TTL) {
+      sessionStorage.removeItem(key);
+      return null;
+    }
+    return status;
+  } catch {
+    return null;
+  }
+}
+
+function setCached(key, status) {
+  try {
+    sessionStorage.setItem(key, JSON.stringify({ status, ts: Date.now() }));
+  } catch {
+    // sessionStorage 사용 불가 환경 (SSR 등) 무시
+  }
+}
+
 export function useSheetACL({ sheetId, sheetName = "Sheet1", userEmail, appSlug }) {
   const [status, setStatus] = useState("loading"); // "allowed" | "denied" | "loading" | "error"
 
@@ -38,13 +62,22 @@ export function useSheetACL({ sheetId, sheetName = "Sheet1", userEmail, appSlug 
       return;
     }
 
-    const url = `${SHEET_BASE}/${sheetId}/gviz/tq?tqx=out:csv&sheet=${sheetName}`;
+    const cacheKey = `sr-acl:${sheetId}:${sheetName}:${userEmail}:${appSlug}`;
+    const cached = getCached(cacheKey);
+    if (cached) {
+      setStatus(cached);
+      return;
+    }
+
+    // sheetName에 한글 등 특수문자가 있을 경우 인코딩
+    const url = `${SHEET_BASE}/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
 
     fetch(url)
       .then((res) => res.text())
       .then((csv) => {
         const rows = csv.split("\n").filter((r) => r.trim());
         if (rows.length < 2) {
+          setCached(cacheKey, "denied");
           setStatus("denied");
           return;
         }
@@ -55,6 +88,7 @@ export function useSheetACL({ sheetId, sheetName = "Sheet1", userEmail, appSlug 
         const slugIdx = headers.indexOf(appSlug.toLowerCase());
 
         if (emailColIdx === -1 || slugIdx === -1) {
+          setCached(cacheKey, "denied");
           setStatus("denied");
           return;
         }
@@ -67,17 +101,20 @@ export function useSheetACL({ sheetId, sheetName = "Sheet1", userEmail, appSlug 
           const cellValue = (cells[slugIdx] || "").toUpperCase().trim();
           if (cellValue !== "O") continue;
           if (rowEmail === "all") {
+            setCached(cacheKey, "allowed");
             setStatus("allowed");
             return;
           }
           if (rowEmail === email) {
+            setCached(cacheKey, "allowed");
             setStatus("allowed");
             return;
           }
         }
+        setCached(cacheKey, "denied");
         setStatus("denied");
       })
-      .catch(() => setStatus("error"));
+      .catch(() => setStatus("error")); // error는 캐싱하지 않음 (일시적 네트워크 오류 가능)
   }, [sheetId, sheetName, userEmail, appSlug]);
 
   return status;

@@ -14,4 +14,9 @@ export default defineConfig({
       external: ["react", "react-dom", "react/jsx-runtime"],
     },
   },
+  test: {
+    environment: "jsdom",
+    globals: true,
+    setupFiles: ["./src/__tests__/setup.js"],
+  },
 });
