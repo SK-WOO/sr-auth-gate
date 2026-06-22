@@ -92,15 +92,17 @@ export function useSheetACL({ proxyUrl, userEmail, appSlug, idToken }) {
         ? { headers: { Authorization: `Bearer ${idToken}` } }
         : {};
 
+      console.log("[SRAuthGate] fetch", url, "hasToken:", !!idToken);
       fetch(url, fetchOpts)
         .then((res) => res.json())
         .then((data) => {
           if (cancelled) return;
+          console.log("[SRAuthGate] response:", JSON.stringify(data));
           const result = data.allowed === true ? "allowed" : "denied";
           setCached(cacheKey, result);
           setStatus(result);
         })
-        .catch(() => { if (!cancelled) setStatus("error"); }); // error는 캐싱하지 않음
+        .catch((err) => { console.error("[SRAuthGate] fetch error:", err); if (!cancelled) setStatus("error"); });
     });
 
     return () => { cancelled = true; };
