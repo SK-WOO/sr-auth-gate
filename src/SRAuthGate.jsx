@@ -6,6 +6,7 @@ export function SRAuthGate({
   appSlug,
   proxyUrl,
   userEmail,
+  idToken,
   lang = "ko",
   appName,
   loading,
@@ -13,7 +14,7 @@ export function SRAuthGate({
   error,
   children,
 }) {
-  const status = useSheetACL({ proxyUrl, userEmail, appSlug });
+  const status = useSheetACL({ proxyUrl, userEmail, appSlug, idToken });
 
   if (status === "loading") {
     return loading || (

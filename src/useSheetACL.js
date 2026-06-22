@@ -61,7 +61,7 @@ function setCached(key, status) {
 
 // proxyUrl: "https://sr-gate.vercel.app/api/check-access"
 // proxyUrl이 없으면 BYPASS 모드 (개발용, sheetId 방식 제거됨)
-export function useSheetACL({ proxyUrl, userEmail, appSlug }) {
+export function useSheetACL({ proxyUrl, userEmail, appSlug, idToken }) {
   const [status, setStatus] = useState("loading"); // "allowed" | "denied" | "loading" | "error"
 
   useEffect(() => {
@@ -88,7 +88,11 @@ export function useSheetACL({ proxyUrl, userEmail, appSlug }) {
 
       const url = `${proxyUrl}?email=${encodeURIComponent(userEmail)}&app=${encodeURIComponent(appSlug)}`;
 
-      fetch(url)
+      const fetchOpts = idToken
+        ? { headers: { Authorization: `Bearer ${idToken}` } }
+        : {};
+
+      fetch(url, fetchOpts)
         .then((res) => res.json())
         .then((data) => {
           if (cancelled) return;
@@ -100,7 +104,7 @@ export function useSheetACL({ proxyUrl, userEmail, appSlug }) {
     });
 
     return () => { cancelled = true; };
-  }, [proxyUrl, userEmail, appSlug]);
+  }, [proxyUrl, userEmail, appSlug, idToken]);
 
   return status;
 }
